@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CourseCraft</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .clay-card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            box-shadow: 8px 8px 16px #d1d9e6, -8px -8px 16px #ffffff;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+        .active-tab {
+            border-bottom: 2px solid #000;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- Login Screen -->
+    <div id="loginScreen" class="p-6 max-w-sm mx-auto mt-20">
+        <div class="clay-card p-8">
+            <h1 class="text-3xl font-bold mb-6 text-center text-gray-800">CourseCraft</h1>
+            <form id="loginForm" class="space-y-4">
+                <div>
+                    <input type="text" id="userId" placeholder="User ID" class="w-full p-2 border rounded" required>
+                </div>
+                <div>
+                    <input type="password" id="password" placeholder="Password" class="w-full p-2 border rounded" required>
+                </div>
+                <div>
+                    <input type="email" id="email" placeholder="Email" class="w-full p-2 border rounded" required>
+                </div>
+                <div class="flex items-center">
+                    <input type="checkbox" id="remember" class="mr-2">
+                    <label for="remember">Remember Password</label>
+                </div>
+                <button type="submit" class="w-full bg-gray-800 text-white p-2 rounded hover:bg-gray-700">Login</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="mainApp" class="hidden">
+        <!-- Header -->
+        <header class="bg-gray-800 p-4 flex justify-between items-center">
+            <h1 class="text-white text-xl">CourseCraft</h1>
+            <button id="logoutBtn" class="text-white"><i class="bi bi-box-arrow-right"></i> Logout</button>
+        </header>
+
+        <!-- Main Content -->
+        <div class="p-4">
+            <!-- Tab Navigation -->
+            <div class="flex justify-around mb-4 border-b">
+                <button class="tab-btn active-tab p-2" data-tab="home">Home</button>
+                <button class="tab-btn p-2" data-tab="courses">Courses</button>
+                <button class="tab-btn p-2" data-tab="progress">Progress</button>
+            </div>
+
+            <!-- Home Tab -->
+            <div id="homeTab" class="tab-content">
+                <h2 class="text-xl font-bold mb-4">Recommended Courses</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Course cards will be dynamically inserted here -->
+                </div>
+            </div>
+
+            <!-- Progress Tab -->
+            <div id="progressTab" class="tab-content hidden">
+                <div class="clay-card p-4 mb-4">
+                    <h2 class="text-xl font-bold mb-4">Your Learning Progress</h2>
+                    <canvas id="progressChart"></canvas>
+                </div>
+                <div class="clay-card p-4">
+                    <h2 class="text-xl font-bold mb-4">Learning History</h2>
+                    <div id="historyList" class="space-y-2">
+                        <!-- History items will be dynamically inserted here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="learningModeModal" class="modal">
+        <div class="modal-content clay-card p-6 max-w-sm mx-auto mt-20 bg-white">
+            <h2 class="text-xl font-bold mb-4">Choose Learning Mode</h2>
+            <button class="w-full mb-2 p-2 bg-gray-800 text-white rounded" onclick="selectMode('normal')">Normal Mode</button>
+            <button class="w-full p-2 bg-gray-800 text-white rounded" onclick="selectMode('gamified')">Gamified Mode</button>
+        </div>
+    </div>
+
+    <div id="materialModal" class="modal">
+        <div class="modal-content clay-card p-6 max-w-sm mx-auto mt-20 bg-white">
+            <h2 class="text-xl font-bold mb-4">Select Material</h2>
+            <button class="w-full mb-2 p-2 bg-gray-800 text-white rounded" onclick="selectMaterial('notes')">Revision Notes</button>
+            <button class="w-full mb-2 p-2 bg-gray-800 text-white rounded" onclick="selectMaterial('past')">Past Year Papers</button>
+            <button class="w-full p-2 bg-gray-800 text-white rounded" onclick="selectMaterial('practice')">Practice Papers</button>
+        </div>
+    </div>
+
+    <div id="purchaseModal" class="modal">
+        <div class="modal-content clay-card p-6 max-w-sm mx-auto mt-20 bg-white">
+            <h2 class="text-xl font-bold mb-4">Contact for Payment</h2>
+            <p class="mb-4">Please contact our representative for payment details:</p>
+            <p class="text-lg font-bold">+1 (555) 123-4567</p>
+            <button class="w-full mt-4 p-2 bg-gray-800 text-white rounded" onclick="closeModal('purchaseModal')">Close</button>
+        </div>
+    </div>
+
+    <script>
+        const courses = [
+            'Civil Engineering', 'Computer Science', 'Mathematics', 'Literature', 
+            'Economics', 'Mechanical Engineering', 'Biology', 'Physics', 
+            'Chemistry', 'Business Management'
+        ];
+
+        let currentCourse = '';
+        let userHistory = [];
+
+        // Login Form Handler
+        document.getElementById('loginForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('mainApp').classList.remove('hidden');
+            initializeApp();
+        });
+
+        // Initialize App
+        function initializeApp() {
+            populateCourses();
+            initializeProgressChart();
+            initializeHistory();
+        }
+
+        // Populate Courses
+        function populateCourses() {
+            const courseContainer = document.querySelector('#homeTab div');
+            courseContainer.innerHTML = courses.map(course => `
+                <div class="clay-card p-4 cursor-pointer hover:shadow-lg" onclick="selectCourse('${course}')">
+                    <h3 class="font-bold">${course}</h3>
+                    <p class="text-sm text-gray-600">Click to explore</p>
+                </div>
+            `).join('');
+        }
+
+        // Course Selection Flow
+        function selectCourse(course) {
+            currentCourse = course;
+            document.getElementById('learningModeModal').style.display = 'block';
+        }
+
+        function selectMode(mode) {
+            document.getElementById('learningModeModal').style.display = 'none';
+            document.getElementById('materialModal').style.display = 'block';
+            addToHistory(currentCourse);
+        }
+
+        function selectMaterial(material) {
+            document.getElementById('materialModal').style.display = 'none';
+            document.getElementById('purchaseModal').style.display = 'block';
+        }
+
+        // Progress Chart
+        function initializeProgressChart() {
+            const ctx = document.getElementById('progressChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    datasets: [{
+                        label: 'Hours Studied',
+                        data: [2, 3, 1, 4, 2, 5, 3],
+                        borderColor: 'rgb(75, 85, 99)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        // History Management
+        function addToHistory(course) {
+            const timestamp = new Date().toLocaleString();
+            userHistory.unshift({ course, timestamp });
+            updateHistoryDisplay();
+        }
+
+        function updateHistoryDisplay() {
+            const historyList = document.getElementById('historyList');
+            historyList.innerHTML = userHistory.map(item => `
+                <div class="clay-card p-2">
+                    <p class="font-bold">${item.course}</p>
+                    <p class="text-sm text-gray-600">${item.timestamp}</p>
+                </div>
+            `).join('');
+        }
+
+        // Tab Navigation
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active-tab'));
+                e.target.classList.add('active-tab');
+                document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
+                document.getElementById(`${e.target.dataset.tab}Tab`).classList.remove('hidden');
+            });
+        });
+
+        // Modal Helpers
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        // Logout Handler
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            document.getElementById('mainApp').classList.add('hidden');
+            document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('loginForm').reset();
+        });
+
+        // Initialize History
+        function initializeHistory() {
+            userHistory = [];
+            updateHistoryDisplay();
+        }
+    </script>
+<script>document.body.addEventListener('wheel', e => { if (!e.ctrlKey) return; e.preventDefault(); return }, { passive: false })</script>
+	</body>
+</html>
